@@ -1,0 +1,532 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Sales Coaching MVP</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='16' fill='%230f172a'/%3E%3Ctext x='50' y='58' font-size='44' text-anchor='middle' fill='white' font-family='Arial, Helvetica, sans-serif'%3ESC%3C/text%3E%3C/svg%3E">
+  <style>
+    :root{--bg:#f8fafc;--card:#fff;--text:#0f172a;--muted:#475569;--brand:#0f172a;--border:#e2e8f0}
+    *{box-sizing:border-box} body,html,#root{height:100%} body{margin:0;background:var(--bg);color:var(--text);font:14px/1.4 system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif}
+    .app{display:flex;flex-direction:column;height:100%}
+    .top{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border);background:#fff;position:sticky;top:0}
+    .brand{font-weight:700;font-size:18px} .badge{font-size:11px;border:1px solid var(--border);border-radius:999px;padding:2px 8px;margin-left:8px;background:#f1f5f9}
+    .wrap{display:flex;min-height:0;flex:1}
+    .nav{width:240px;border-right:1px solid var(--border);padding:12px;background:#fff;overflow:auto}
+    .nav button{width:100%;text-align:left;border:1px solid var(--border);background:#fff;border-radius:12px;padding:10px 12px;margin-bottom:8px;cursor:pointer}
+    .nav button.active{background:var(--brand);color:#fff;border-color:var(--brand)}
+    .main{flex:1;padding:16px;overflow:auto}
+    .card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:14px;box-shadow:0 1px 2px rgba(0,0,0,.03)}
+    .grid{display:grid;gap:12px}
+    .grid-3{grid-template-columns:repeat(3,minmax(0,1fr))}
+    .grid-2{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .muted{color:var(--muted);font-size:12px}
+    input, textarea, select{width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:10px}
+    .row{display:flex;gap:8px;align-items:center}
+    .btn{border:1px solid var(--border);border-radius:10px;padding:8px 12px;background:#fff;cursor:pointer}
+    .btn.primary{background:var(--brand);color:#fff;border-color:var(--brand)}
+    .list{max-height:220px;overflow:auto;display:flex;flex-direction:column;gap:8px}
+    .pill{font-size:11px;border:1px solid var(--border);border-radius:999px;padding:3px 8px;background:#f1f5f9}
+
+    /* Objection flip card */
+    .flip-wrap{position:relative;width:100%;max-width:580px;height:220px;margin:0 auto;perspective:1000px}
+    .flip-card{position:relative;width:100%;height:100%;transform-style:preserve-3d;transition:transform .5s ease}
+    .flip-card.flipped{transform:rotateY(180deg)}
+    .flip-face{position:absolute;inset:0;border-radius:16px;padding:16px;backface-visibility:hidden}
+    .flip-front{background:#0f172a;color:#fff}
+    .flip-back{background:#0f172a;color:#fff;transform:rotateY(180deg)}
+
+    @media (max-width: 980px){.nav{display:none}.grid-3{grid-template-columns:1fr}.grid-2{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <!-- React via CDN -->
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <script type="text/babel">
+const { useState, useMemo, useEffect } = React;
+
+const seedObjections = [
+  { label: "Too expensive", framework: "Feel–Felt–Found", response: "I understand it feels pricey. Others felt the same until they found the ROI from reduced churn covered it in two months." },
+  { label: "We're happy with current vendor", framework: "Reframe + Wedge", response: "Totally fair. Many teams were satisfied until they realized they were missing 18% of recoverable deals—may I show you how we close that gap?" },
+  { label: "No budget", framework: "Prioritize + Micro-commit", response: "Let’s align the impact on this quarter’s KPI. If we prove a 10% lift in 30 days, could you authorize a pilot?" },
+];
+const seedDrills = [
+  { id: "d1", title: "30s Value Pitch", durationSec: 60, goal: "Clarity & brevity" },
+  { id: "d2", title: "Objection: Pricing", durationSec: 90, goal: "Bridge to ROI" },
+  { id: "d3", title: "Next-Step Close", durationSec: 60, goal: "Secure time-bound CTA" },
+];
+
+function App(){
+  const [section, setSection] = useState("Dashboard");
+  const [objections, setObjections] = useState(() => load("sc_objections", seedObjections));
+  const [drills, setDrills] = useState(() => load("sc_drills", seedDrills));
+  const [scorecards, setScorecards] = useState(() => load("sc_scorecards", []));
+  const [connections, setConnections] = useState(() => load("sc_connections", {}));
+  const [webhooks, setWebhooks] = useState(() => load("sc_webhooks", []));
+  const [intLogs, setIntLogs] = useState(() => load("sc_intLogs", []));
+
+  useEffect(()=>save("sc_objections", objections), [objections]);
+  useEffect(()=>save("sc_drills", drills), [drills]);
+  useEffect(()=>save("sc_scorecards", scorecards), [scorecards]);
+  useEffect(()=>save("sc_connections", connections), [connections]);
+  useEffect(()=>save("sc_webhooks", webhooks), [webhooks]);
+  useEffect(()=>save("sc_intLogs", intLogs), [intLogs]);
+
+  const kpis = useMemo(()=>{
+    const reviewed = scorecards.length;
+    const avg = reviewed ? Math.round((scorecards.reduce((s,r)=>s+r.total,0)/reviewed + Number.EPSILON)*10)/10 : 0;
+    const winRate = Math.min(95, Math.max(10, Math.round(avg*4)));
+    return {reviewed, avg, winRate};
+  },[scorecards]);
+
+  async function emitEvent(name, payload){
+    // Log locally
+    log("event", name, payload);
+    // Send to serverless webhook
+    try {
+      await fetch("/api/webhooks", {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({ name, payload, ts: new Date().toISOString() })
+      });
+      log("webhook", "POST /api/webhooks ✓", {name});
+    } catch(e){
+      log("webhook", "POST /api/webhooks ✗", {name, error: String(e)});
+    }
+    // Mock syncing to connected providers
+    Object.keys(connections).forEach(k => {
+      if(connections[k]?.status==="connected"){
+        log("sync", `Would sync '${name}' to ${connections[k].name||k}`, {mapped: exampleMapping(name,payload)});
+      }
+    });
+  }
+  function log(type, message, extra){
+    setIntLogs(l => [{ts:new Date().toISOString(), type, message, extra}, ...l].slice(0,200));
+  }
+
+  return (
+    <div className="app">
+      <div className="top">
+        <div><span className="brand">Sales Coach</span><span className="badge">MVP+</span></div>
+        <div className="muted">Static UI + serverless webhook</div>
+      </div>
+      <div className="wrap">
+        <div className="nav">
+          {["Dashboard","Drills","Objections","Scorecards","Integrations","Developers","Settings"].map(tab=> (
+            <button key={tab} className={section===tab?"active":""} onClick={()=>setSection(tab)}>{tab}</button>
+          ))}
+        </div>
+        <main className="main">
+          {section==="Dashboard" && <Dashboard kpis={kpis} scorecards={scorecards}/>}
+          {section==="Drills" && <Drills drills={drills} onAdd={d=>setDrills(v=>[...v,d])} onEvent={emitEvent}/>}
+          {section==="Objections" && <Objections data={objections} onAdd={o=>setObjections(v=>[o,...v])} onDelete={(i)=>setObjections(v=>v.filter((_,idx)=>idx!==i))}/>}
+          {section==="Scorecards" && <Scorecards scorecards={scorecards} onSave={r=>{setScorecards(s=>[r,...s]); emitEvent("scorecard.saved", {scorecard:r});}}/>}
+          {section==="Integrations" && <Integrations connections={connections} setConnections={setConnections} webhooks={webhooks} setWebhooks={setWebhooks} intLogs={intLogs} clearLogs={()=>setIntLogs([])}/>}
+          {section==="Developers" && <Developers/>}
+          {section==="Settings" && <Settings onReset={()=>{
+            localStorage.clear();
+            setObjections(seedObjections); setDrills(seedDrills); setScorecards([]); setConnections({}); setWebhooks([]); setIntLogs([]);
+          }}/>}
+        </main>
+      </div>
+    </div>
+  );
+}
+
+function SectionTitle({children}){ return <div style={{fontWeight:600, marginBottom:8}}>{children}</div> }
+
+function Dashboard({kpis, scorecards}){
+  const latest = scorecards.slice(0,5);
+  return (
+    <div className="grid grid-3 grid">
+      <div className="card">
+        <div className="muted">Calls Reviewed</div>
+        <div style={{fontSize:28,fontWeight:700}}>{kpis.reviewed}</div>
+        <div className="muted" style={{marginTop:6}}>Last 30 days</div>
+      </div>
+      <div className="card">
+        <div className="muted">Avg Score</div>
+        <div style={{fontSize:28,fontWeight:700}}>{kpis.avg}/25</div>
+        <div className="muted" style={{marginTop:6}}>Across all criteria</div>
+      </div>
+      <div className="card">
+        <div className="muted">Win-Rate (est.)</div>
+        <div style={{fontSize:28,fontWeight:700}}>{kpis.winRate}%</div>
+        <div className="muted" style={{marginTop:6}}>Based on coaching quality index</div>
+      </div>
+
+      <div className="card" style={{gridColumn:"span 2"}}>
+        <SectionTitle>Weekly Trend (demo)</SectionTitle>
+        <div className="muted">Charts omitted in single-file build.</div>
+      </div>
+
+      <div className="card">
+        <SectionTitle>Recent Scorecards</SectionTitle>
+        <div className="list">
+          {latest.length===0 ? <div className="muted">No reviews yet. Add one in Scorecards.</div> :
+            latest.map((r,i)=>(
+              <div key={i} className="row" style={{justifyContent:"space-between",border:"1px solid var(--border)",padding:8,borderRadius:12}}>
+                <div>
+                  <div style={{fontWeight:600}}>{r.rep||"Rep"} • {r.account||"Account"}</div>
+                  <div className="muted">{new Date(r.date).toLocaleString()}</div>
+                </div>
+                <div style={{textAlign:"right"}}>
+                  <div style={{fontWeight:700}}>{r.total}/25</div>
+                  <div className="muted">{(r.notes||"").slice(0,28)}</div>
+                </div>
+              </div>
+            ))
+          }
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Drills({drills, onAdd, onEvent}){
+  const [running, setRunning] = useState(null);
+  const [remaining, setRemaining] = useState(0);
+  const [showNew, setShowNew] = useState(false);
+  const [form, setForm] = useState({title:"", durationSec:60, goal:""});
+
+  useEffect(()=>{
+    if(!running) return;
+    const d = drills.find(x=>x.id===running); if(!d) return;
+    setRemaining(d.durationSec);
+    onEvent?.("drill.started",{drillId:d.id,title:d.title,ts:new Date().toISOString()});
+    const t = setInterval(()=> setRemaining(s=> Math.max(0,s-1)), 1000);
+    return ()=> clearInterval(t);
+  },[running]);
+
+  useEffect(()=>{
+    if(running && remaining===0){
+      const d = drills.find(x=>x.id===running);
+      onEvent?.("drill.completed",{drillId:d?.id,title:d?.title,ts:new Date().toISOString()});
+      setRunning(null);
+    }
+  },[remaining,running]);
+
+  function add(){
+    if(!form.title) return;
+    onAdd({ id: Math.random().toString(36).slice(2), ...form, durationSec:Number(form.durationSec)});
+    setForm({title:"", durationSec:60, goal:""}); setShowNew(false);
+  }
+
+  return (
+    <div className="grid grid-3 grid">
+      <div className="card" style={{gridColumn:"span 2"}}>
+        <div className="row" style={{marginBottom:8, justifyContent:'space-between'}}>
+          <SectionTitle>Practice Drills</SectionTitle>
+          <button className="btn" onClick={()=>setShowNew(true)}>+ New Drill</button>
+        </div>
+        <div className="grid grid-2">
+          {drills.map(d=>(
+            <div key={d.id} className="card">
+              <div style={{fontWeight:600}}>{d.title}</div>
+              <div className="muted">Goal: {d.goal || "—"}</div>
+              <div className="row" style={{marginTop:8, justifyContent:'space-between'}}>
+                <div className="muted">Duration: {d.durationSec||60}s</div>
+                {running===d.id ? <span className="pill">{remaining}s</span> :
+                  <button className="btn" onClick={()=>setRunning(d.id)}>Start</button>}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="card">
+        <SectionTitle>Coach’s Tip</SectionTitle>
+        <ul style={{margin:"0 0 0 18px"}}>
+          <li>Lead with problem discovery, not features.</li>
+          <li>Mirror language, label emotions, then bridge to value.</li>
+          <li>Secure time-bound next steps on every call.</li>
+        </ul>
+      </div>
+
+      {showNew && (
+        <div className="card" style={{gridColumn:"span 3"}}>
+          <div className="row" style={{marginBottom:8, justifyContent:'space-between'}}>
+            <SectionTitle>New Drill</SectionTitle>
+            <button className="btn" onClick={()=>setShowNew(false)}>Close</button>
+          </div>
+          <div className="grid grid-2">
+            <label>Title<input value={form.title} onChange={e=>setForm({...form,title:e.target.value})}/></label>
+            <label>Duration (seconds)<input type="number" value={form.durationSec} onChange={e=>setForm({...form,durationSec:e.target.value})}/></label>
+            <label style={{gridColumn:"span 2"}}>Goal<input value={form.goal} onChange={e=>setForm({...form,goal:e.target.value})}/></label>
+          </div>
+          <div style={{marginTop:8}}>
+            <button className="btn primary" onClick={add}>Save Drill</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Objections({data, onAdd, onDelete}){
+  const [idx, setIdx] = useState(0);
+  const [flipped, setFlipped] = useState(false);
+  const [form, setForm] = useState({label:"", framework:"", response:""});
+
+  useEffect(()=>{
+    if(data.length===0){ setIdx(0); setFlipped(false); return; }
+    if(idx > data.length-1){ setIdx(data.length-1); setFlipped(false); }
+  }, [data.length]);
+
+  const card = data[idx] || {};
+
+  function add(){
+    if(!form.label || !form.response) return;
+    onAdd(form); setForm({label:"", framework:"", response:""});
+    setIdx(0); setFlipped(false);
+  }
+
+  return (
+    <div className="grid grid-3 grid">
+      <div className="card" style={{gridColumn:"span 2"}}>
+        <div className="row" style={{marginBottom:8, justifyContent:'space-between'}}>
+          <SectionTitle>Objection Flashcards</SectionTitle>
+          <div className="muted">Click the card to flip</div>
+        </div>
+        {data.length===0 ? (
+          <div className="muted">No objections yet. Add one on the right.</div>
+        ) : (
+          <div className="row" style={{gap:8, alignItems:'stretch'}}>
+            <button className="btn" onClick={()=>{ setIdx((idx-1+data.length)%data.length); setFlipped(false); }}>◀</button>
+            <div className="flip-wrap">
+              <div className={"flip-card "+(flipped?"flipped":"")} onClick={()=>setFlipped(v=>!v)}>
+                <div className="flip-face flip-front">
+                  <div className="muted">Objection</div>
+                  <h4 style={{margin:"6px 0"}}>{card.label}</h4>
+                </div>
+                <div className="flip-face flip-back">
+                  <div className="muted">Framework: {card.framework || "—"}</div>
+                  <div style={{marginTop:8,fontSize:16,lineHeight:1.35}}>{card.response}</div>
+                </div>
+              </div>
+            </div>
+            <button className="btn" onClick={()=>{ setIdx((idx+1)%data.length); setFlipped(false); }}>▶</button>
+          </div>
+        )}
+        {data.length>0 && (
+          <div style={{textAlign:"right", marginTop:8}}>
+            <button className="btn" onClick={()=> onDelete(idx)}>Delete current</button>
+          </div>
+        )}
+      </div>
+
+      <div className="card">
+        <SectionTitle>Add New Objection</SectionTitle>
+        <label>Objection<input value={form.label} onChange={e=>setForm({...form,label:e.target.value})}/></label>
+        <label>Framework<input value={form.framework} onChange={e=>setForm({...form,framework:e.target.value})}/></label>
+        <label>Response<textarea rows="5" value={form.response} onChange={e=>setForm({...form,response:e.target.value})}></textarea></label>
+        <button className="btn primary" onClick={add} style={{marginTop:8}}>Save Objection</button>
+      </div>
+    </div>
+  );
+}
+
+function Scorecards({scorecards, onSave}){
+  const [form, setForm] = useState({rep:"", account:"", date:new Date().toISOString(), notes:""});
+  const [crit, setCrit] = useState({discovery:0, pain:0, fit:0, next:0, confidence:0});
+  const total = crit.discovery + crit.pain + crit.fit + crit.next + crit.confidence;
+
+  function submit(){
+    const rec = {...form, ...crit, total};
+    onSave(rec);
+    setForm({rep:"", account:"", date:new Date().toISOString(), notes:""});
+    setCrit({discovery:0, pain:0, fit:0, next:0, confidence:0});
+  }
+
+  return (
+    <div className="grid grid-3 grid">
+      <div className="card" style={{gridColumn:"span 2"}}>
+        <SectionTitle>Call Review Scorecard</SectionTitle>
+        <div className="grid grid-2">
+          <label>Rep<input value={form.rep} onChange={e=>setForm({...form,rep:e.target.value})}/></label>
+          <label>Account<input value={form.account} onChange={e=>setForm({...form,account:e.target.value})}/></label>
+          <label>Date/Time<input type="datetime-local" value={toLocalInput(form.date)} onChange={e=>setForm({...form,date:fromLocalInput(e.target.value)})}/></label>
+          <label>Notes<input value={form.notes} onChange={e=>setForm({...form,notes:e.target.value})}/></label>
+        </div>
+        <div className="grid grid-2" style={{marginTop:8}}>
+          {["discovery","pain","fit","next","confidence"].map(k=> (
+            <label key={k} style={{display:"block"}}>
+              {labelMap[k]}
+              <input type="range" min="0" max="5" value={crit[k]} onChange={e=>setCrit({...crit, [k]: Number(e.target.value)})}/>
+              <span className="muted">{crit[k]}/5</span>
+            </label>
+          ))}
+        </div>
+        <div className="row" style={{marginTop:8, justifyContent:'space-between'}}>
+          <div>Total: <b>{total}/25</b></div>
+          <button className="btn primary" onClick={submit}>Save Review</button>
+        </div>
+      </div>
+
+      <div className="card">
+        <SectionTitle>Recent Reviews</SectionTitle>
+        <div className="list">
+          {scorecards.length===0 ? <div className="muted">Nothing here yet.</div> :
+            scorecards.slice(0,10).map((r,i)=>(
+              <div key={i} className="card" style={{padding:8}}>
+                <div style={{fontWeight:600}}>{r.rep||"Rep"} → {r.account||"Account"}</div>
+                <div className="muted">{new Date(r.date).toLocaleString()}</div>
+                <div>Score: <b>{r.total}/25</b></div>
+                <div className="muted">{r.notes}</div>
+              </div>
+            ))
+          }
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Integrations({connections,setConnections,webhooks,setWebhooks,intLogs,clearLogs}){
+  const providers = [
+    {key:"salesforce", name:"Salesforce", kind:"CRM", auth:"oauth2"},
+    {key:"hubspot", name:"HubSpot", kind:"CRM/Marketing", auth:"oauth2"},
+    {key:"pipedrive", name:"Pipedrive", kind:"CRM", auth:"oauth2"},
+    {key:"vbout", name:"VBOUT", kind:"Marketing Automation", auth:"apiKey"},
+    {key:"marketo", name:"Marketo", kind:"Marketing", auth:"oauth2"},
+    {key:"mailchimp", name:"Mailchimp", kind:"Email/Marketing", auth:"oauth2"},
+    {key:"activecampaign", name:"ActiveCampaign", kind:"CRM/Marketing", auth:"apiKey"},
+    {key:"zoho", name:"Zoho CRM", kind:"CRM", auth:"oauth2"},
+    {key:"close", name:"Close", kind:"CRM", auth:"apiKey"},
+  ];
+
+  const [apiKeys, setApiKeys] = useState(()=> load("sc_apiKeys", {}));
+  useEffect(()=> save("sc_apiKeys", apiKeys), [apiKeys]);
+
+  function toggle(p){
+    const c = connections[p.key];
+    if(c?.status==="connected"){
+      const next = {...connections}; delete next[p.key]; setConnections(next);
+    } else {
+      setConnections({...connections, [p.key]: {status:"connected", name:p.name, createdAt:new Date().toISOString(), token: p.auth==="apiKey" ? (apiKeys[p.key]||"<api-key>") : "<oauth-token>"}});
+    }
+  }
+  const [newHook, setNewHook] = useState("");
+  function addHook(){ if(!newHook) return; setWebhooks([...webhooks, newHook]); setNewHook(""); }
+  function rmHook(i){ setWebhooks(webhooks.filter((_,idx)=>idx!==i)); }
+
+  return (
+    <div className="grid grid-3 grid">
+      <div className="card" style={{gridColumn:"span 2"}}>
+        <div className="row" style={{gap:8, marginBottom:8}}>
+          <SectionTitle>Connections</SectionTitle>
+        </div>
+        <div className="grid grid-3">
+          {providers.map(p=>{
+            const connected = connections[p.key]?.status==="connected";
+            return (
+              <div key={p.key} className="card">
+                <div className="row" style={{justifyContent:"space-between"}}>
+                  <div>
+                    <div style={{fontWeight:600}}>{p.name}</div>
+                    <div className="muted">{p.kind} • {p.auth.toUpperCase()}</div>
+                  </div>
+                  <span className="pill">{connected?"Connected":"Not connected"}</span>
+                </div>
+                {p.auth==="apiKey" && (
+                  <label style={{marginTop:6}}>API Key<input placeholder="paste key here" value={apiKeys[p.key]||""} onChange={e=>setApiKeys({...apiKeys,[p.key]:e.target.value})}/></label>
+                )}
+                <div style={{marginTop:8}}>
+                  <button className={"btn "+(connected?"":"primary")} onClick={()=>toggle(p)}>{connected?"Disconnect":(p.auth==="oauth2"?"Connect":"Save & Connect")}</button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="row" style={{gap:8, marginBottom:6}}><SectionTitle>Outbound Webhooks</SectionTitle></div>
+        <div className="muted" style={{marginBottom:6}}>Events are posted to <code>/api/webhooks</code> by default.</div>
+        <div className="list" style={{marginTop:8}}>
+          <div className="muted">Tip: add external URLs here and forward from your server if needed.</div>
+        </div>
+      </div>
+
+      <div className="card" style={{gridColumn:"span 3"}}>
+        <SectionTitle>Integration Activity</SectionTitle>
+        <div className="muted" style={{marginBottom:6}}>Most recent first</div>
+        <div className="list">
+          {intLogs.length===0 ? <div className="muted">No activity yet.</div> :
+            intLogs.map((l,i)=>(
+              <div key={i} className="card" style={{padding:8}}>
+                <div className="row" style={{justifyContent:"space-between"}}>
+                  <div className="pill">{l.type}</div>
+                  <div className="muted">{new Date(l.ts).toLocaleString()}</div>
+                </div>
+                <div style={{marginTop:4}}>{l.message}</div>
+                {l.extra && <pre style={{whiteSpace:"pre-wrap", background:"#f8fafc", padding:8, border:"1px solid var(--border)", borderRadius:8, marginTop:6}}>{JSON.stringify(l.extra,null,2)}</pre>}
+              </div>
+            ))
+          }
+        </div>
+        <div style={{textAlign:"right", marginTop:8}}><button className="btn" onClick={clearLogs}>Clear</button></div>
+      </div>
+    </div>
+  );
+}
+
+function Developers(){
+  return (
+    <div className="grid grid-2 grid">
+      <div className="card">
+        <SectionTitle>Events & Payloads</SectionTitle>
+        <pre style={{whiteSpace:"pre-wrap", background:"#f8fafc", padding:8, border:"1px solid var(--border)", borderRadius:8, marginTop:8}}>
+scorecard.saved -> { "scorecard": { rep, account, date, notes, discovery, pain, fit, next, confidence, total } }
+drill.completed -> { "drillId", "title", "ts" }
+        </pre>
+      </div>
+      <div className="card">
+        <SectionTitle>Webhook Receiver</SectionTitle>
+        <pre style={{whiteSpace:"pre-wrap", background:"#f8fafc", padding:8, border:"1px solid var(--border)", borderRadius:8}}>
+POST /api/webhooks
+{ "name": "scorecard.saved", "payload": { ... }, "ts": "2025-09-03T00:00:00.000Z" }
+        </pre>
+      </div>
+    </div>
+  );
+}
+
+function Settings({onReset}){
+  return (
+    <div className="card">
+      <SectionTitle>Settings</SectionTitle>
+      <div className="row" style={{justifyContent:"space-between", border:"1px solid var(--border)", padding:8, borderRadius:12}}>
+        <div><div style={{fontWeight:600}}>Reset demo data</div><div className="muted">Clears local storage and restores defaults</div></div>
+        <button className="btn" onClick={onReset}>Reset</button>
+      </div>
+    </div>
+  );
+}
+
+// helpers
+const labelMap = {discovery:"Discovery", pain:"Pain Quantified", fit:"Solution Fit", next:"Next Steps", confidence:"Confidence"};
+function toLocalInput(iso){ try{ const d=new Date(iso); const pad=n=>String(n).padStart(2,"0"); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}` } catch { return "" } }
+function fromLocalInput(v){ try{ const d=new Date(v); return d.toISOString() } catch { return new Date().toISOString() } }
+function load(k,f){ try{ const v=localStorage.getItem(k); return v?JSON.parse(v):f } catch { return f } }
+function save(k,v){ localStorage.setItem(k, JSON.stringify(v)) }
+function exampleMapping(name, payload){
+  if(name==="scorecard.saved"){
+    const s = (payload||{}).scorecard||{};
+    return { entity:"Activity", fields:{ title:`Call Review: ${s.rep||"Rep"} → ${s.account||"Account"}`, score_total:s.total, notes:s.notes, occurred_at:s.date } };
+  }
+  if(name==="drill.completed"){
+    return { entity:"Note", fields:{ title:`Drill Completed: ${payload.title}`, occurred_at:payload.ts } };
+  }
+  return { entity:"Event", fields:payload };
+}
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<App/>);
+  </script>
+</body>
+</html>
